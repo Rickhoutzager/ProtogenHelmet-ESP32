@@ -15,19 +15,19 @@
 
 #define visorType "WS2812" // What displays are you using? (WS2812 or MAX72XX so far)
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW //flip up-down: ::DR1CR0RR1_HW , flip left-right: ::PAROLA_HW , flip both: ::ICSTATION_HW
-#define MATRIXESNUM 11 // How many matrices for visor? 11
+#define MATRIXESNUM 17 // How many matrices for visor? 11
 #define FADESTEPS 4 //how many steps when fading between frames? (0=disabled; only for WS2812 displays)
 
-bool earPresent = false; // Are you using ear leds?
+bool earPresent = true; // Are you using ear leds?
 #define earLedsNum 74 // How many? (74 or 32 rn)
 
-bool blushPresent = false; // Are you using blush leds?
+bool blushPresent = true; // Are you using blush leds?
 #define blushLedsNum 8 // How many? (might crash under 8)
-bool useRGBblush = true; //Swaps red-green for RGB strip
+bool useRGBblush = false; //Swaps red-green for RGB strip
 
-bool INApresent = false; //Are you using INA219?
+bool INApresent = true; //Are you using INA219?
 
-#define boopMode "APDS9960" //"KY-032" for KY-032, "Capac" for capacitive sensor/boop when HIGH, "APDS9960" for ADPS9960, "VL53L1X" for VL53L1X, leave empty for none
+#define boopMode "VL53L1X" //"KY-032" for KY-032, "Capac" for capacitive sensor/boop when HIGH, "APDS9960" for ADPS9960, "VL53L1X" for VL53L1X, leave empty for none
 
 #define revertTilt 8000 //The maximum time that animation caused by tilt gets shown (used as if tilt bugs out etc)
 
@@ -641,8 +641,7 @@ void setup() {
       .bitwidth = ADC_BITWIDTH_12,
   };
   ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, MICpin, &channel_config));
-
-  ledcAttach(fanPWM, 25000, 8); //suport Arduino 3.x
+  ledcAttach(fanPWM, 250, 8); //suport Arduino 3.x
   ledcWrite(fanPWM, cfg.fanDuty); //Arduino 3.x core
   //ledcSetup(0, 25000, 8); //For Arduino 2.x
   //ledcAttachPin(fanPWM, 0); //For Arduino 2.x
