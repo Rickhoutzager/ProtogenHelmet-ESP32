@@ -17,6 +17,7 @@
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW //flip up-down: ::DR1CR0RR1_HW , flip left-right: ::PAROLA_HW , flip both: ::ICSTATION_HW
 #define MATRIXESNUM 17 // How many matrices for visor? 11
 #define FADESTEPS 4 //how many steps when fading between frames? (0=disabled; only for WS2812 displays)
+#define FADE_INTERVAL_MS 20 //ms between each fade step
 
 bool earPresent = true; // Are you using ear leds?
 #define earLedsNum 74 // How many? (74 or 32 rn)
@@ -56,6 +57,13 @@ ezButton hwBtn(animBtn);
 #define FASTLED_ESP8266_RAW_PIN_ORDER
 //#define FASTLED_RMT5 = 0 //doesnt compile
 #define FASTLED_ESP32_FLASH_LOCK 1
+// ESP32-S3 RMT5 WiFi glitch hardening:
+// Run RMT ISR from IRAM so WiFi flash-cache stalls can't corrupt the signal
+#define FASTLED_RMT5_FORCE_IRAM_SAFE 1
+// Raise RMT interrupt priority to maximum allowed (3) to beat WiFi interrupts
+#define FASTLED_RMT5_INTERRUPT_PRIORITY 3
+// Larger RMT symbol buffer absorbs WiFi burst jitter without underrunning
+#define FASTLED_RMT5_MEM_BLOCK_SYMBOLS 256
 #include <FastLED.h>
 #define ARDUINOJSON_USE_DOUBLE 0
 #include <ArduinoJson.h>
@@ -121,7 +129,7 @@ void logPrint(const String &str) {
 AsyncWebServer server(80);
 
 //--------------------------------//Config vars
-bool instantReload = false, oledInitDone = false, tiltInitDone = false, getfilesProper = true, ToFInitDone = false;
+bool instantReload = false, oledInitDone = false, tiltInitDone = false, getfilesProper = true, ToFInitDone = false, flashlightMode = false;
 uint8_t currentEarsFrame = 0, currentVisorFrame = 0, numOfSegm, numAnimBlush, totalAnims;
 uint16_t visorLedsNum = MATRIXESNUM*64;
 String currentAnim = "", animToLoad = "", availAnims[50], getfilesCache;
@@ -156,6 +164,7 @@ struct AnimNowEars {
 
 struct FramesVisor {
   int timespan;
+  uint8_t numSegm; //segment count stored per-frame to avoid global race with WiFi callbacks
   uint64_t leds[MATRIXESNUM];
   long ledsBlush[blushLedsNum];
   long fColor[MATRIXESNUM];
@@ -292,8 +301,8 @@ bool loadAnim(String anim, String temp) {
           visorNow->frames[x].ledsBlush[y] = strtol(doc["visor"]["frames"][x]["ledsBlush"][y].as<String>().c_str(), NULL, 16);
         }
       }
-      numOfSegm = doc["visor"]["frames"][x]["leds"].size();
-      for(int y = 0; y < numOfSegm; y++) {
+      visorNow->frames[x].numSegm = (uint8_t)doc["visor"]["frames"][x]["leds"].size();
+      for(int y = 0; y < visorNow->frames[x].numSegm; y++) {
         visorNow->frames[x].fColor[y] = strtol(doc["visor"]["frames"][x]["fColor"][y].as<String>().c_str(), NULL, 16); //should return 0 if not present
         visorNow->frames[x].leds[y] = strtoull(doc["visor"]["frames"][x]["leds"][y].as<String>().c_str(), NULL, 16); //string to uint64
       }
@@ -314,6 +323,11 @@ bool loadAnim(String anim, String temp) {
     instantReload = true;
     currentVisorFrame = 0;
     currentEarsFrame = 0;
+
+    flashlightMode = (anim == "flashlight.json");
+    if(flashlightMode) {
+      logPrint(F("[I] Flashlight mode: brightness set to 255"));
+    }
 
     if(cfg.oledEna && oledInitDone) {
       oled.writeAnim(anim.substring(0,anim.length()-5));
@@ -410,6 +424,7 @@ bool startBLE() {
 
 //--------------------------------//WiFi server setup
 void startWiFiWeb() {
+  WiFi.setSleep(false); //disable WiFi modem sleep — prevents burst interrupts that corrupt RMT/WS2812B signal
   WiFi.softAP(cfg.wifiName, cfg.wifiPass);
 
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
@@ -772,15 +787,16 @@ void dynamicSpeak(uint64_t *leds, bool isMouth[MATRIXESNUM], int volume) {
   }
 }
 
-void setAllVisor(struct CRGB *ledArray, long ledColor, int visorFrame) {
+void setAllVisor(struct CRGB *ledArray, long ledColor, int visorFrame, bool newFrame = false) {
   uint64_t tempLeds[MATRIXESNUM];
   memcpy(tempLeds, visorNow->frames[visorFrame].leds, sizeof(tempLeds));
   if(speaking) {
     dynamicSpeak(tempLeds, visorNow->isMouth, micVolume);
   }
-  for(int y = 0; y < numOfSegm; y++) {
+  uint8_t segCount = visorNow->frames[visorFrame].numSegm; //use per-frame count, safe from WiFi callback races
+  for(int y = 0; y < segCount; y++) {
     for (int i = 0; i < 8; i++) {
-      byte row = (tempLeds[y] >> i * 8) & 0xFF; //---------remove byte from upper global
+      byte row = (tempLeds[y] >> i * 8) & 0xFF;
       for (int j = 0; j < 8; j++) {
         if(visorType == "WS2812") {
           long tempColor = ledColor; //use given color
@@ -805,7 +821,10 @@ void setAllVisor(struct CRGB *ledArray, long ledColor, int visorFrame) {
     }
   }
   FdisplayVisor = true;
-  currFade = 1;
+  if(newFrame) { //only reset fade counter when a new animation frame is committed, not on speech updates
+    currFade = 1;
+    fadeTime = millis();
+  }
 }
 
 void loop() {
@@ -887,7 +906,7 @@ void loop() {
       currentVisorFrame++;
       lastMillsVisor = millis();
       if(currentVisorFrame == visorNow->numOfFrames) { currentVisorFrame = 0; }
-      setAllVisor(visorLedsNEW,0,currentVisorFrame); //set visor leds
+      setAllVisor(visorLedsNEW,0,currentVisorFrame,true); //set visor leds (newFrame=true resets fade)
       if(blushPresent) {
         for(int x = 0; x<blushLedsNum; x++) { blushLeds[x] = visorNow->frames[currentVisorFrame].ledsBlush[x]; } //set blush leds
         FdisplayBlush = true;
@@ -1172,13 +1191,14 @@ void loop() {
         if(visorNow->type == 0) {
           if(FADESTEPS == 0) { //just fading
             memcpy(visorLeds, visorLedsNEW, sizeof(CRGB) * visorLedsNum);
-            ledController[0]->showLeds(cfg.bVisor);
+            ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor);
             FdisplayVisor = false;
-          } else if(fadeTime + (visorLedsNum*0.03) < millis()) {
+          } else if(fadeTime + FADE_INTERVAL_MS < millis()) {
             for (uint16_t i = 0; i < visorLedsNum; i++) {
               visorLeds[i] = blend(visorLeds[i], visorLedsNEW[i], (currFade * 255) / FADESTEPS);
             }
-            ledController[0]->showLeds(cfg.bVisor); //visor
+            ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor); //visor
+            fadeTime = millis(); //advance timer for next fade step
             currFade++;
             if(currFade > FADESTEPS) {
               memcpy(visorLeds, visorLedsNEW, sizeof(CRGB) * visorLedsNum);
@@ -1190,20 +1210,21 @@ void loop() {
             for (uint16_t i = 0; i < visorLedsNum; i++) {
               visorLeds[i] = blend(visorLeds[i], visorLedsNEW[i], (step * 255) / FADESTEPS);
             }
-            ledController[0]->showLeds(cfg.bVisor); //visor
+            ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor); //visor
             delay(21); 
           }
           memcpy(visorLeds, visorLedsNEW, sizeof(CRGB) * visorLedsNum);
           FdisplayVisor = false;*/
         } else {
-          ledController[0]->showLeds(cfg.bVisor);
+          ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor);
           FdisplayVisor = false;
         }
       }
     } else if (visorType == "MAX72XX") {
       if(FdisplayVisor) {
-        if(cfg.bVisor > 15) { cfg.bVisor = 15;}
-        mx.control(MD_MAX72XX::INTENSITY, cfg.bVisor);
+        int effectiveBVisor = flashlightMode ? 15 : cfg.bVisor;
+        if(effectiveBVisor > 15) { effectiveBVisor = 15;}
+        mx.control(MD_MAX72XX::INTENSITY, effectiveBVisor);
         mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
         mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::OFF);
         FdisplayVisor = false;
