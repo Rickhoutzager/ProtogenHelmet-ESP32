@@ -1,0 +1,4 @@
+# Make the RMT ISR run from IRAM so WiFi flash-cache stalls cannot corrupt
+# the WS2812B signal mid-transmission on ESP32-S3.
+# Required for FASTLED_RMT5_FORCE_IRAM_SAFE to take full effect.
+CONFIG_RMT_ISR_IRAM_SAFE=y

@@ -831,7 +831,7 @@ void loop() {
   ElegantOTA.loop();
   //--------------------------------//EAR Leds render
   if(earPresent) {
-    if(earsNow->type == 0) { //custom
+    if(earsNow->type == 0 && earsNow->frames != nullptr) { //custom
       if(lastMillsEars+earsNow->frames[currentEarsFrame].timespan <= millis() || instantReload) {
         currentEarsFrame++;
         lastMillsEars = millis();
@@ -887,7 +887,7 @@ void loop() {
         }
         FdisplayEar = true;
       }
-    } else if (earsNow->type == 4) { //custom_glow
+    } else if (earsNow->type == 4 && earsNow->frames != nullptr) { //custom_glow
       fill_rainbow(pixelBuffer, 4, millis()/cfg.rbSpeed, 255/cfg.rbWidth);
       for(int y = 0; y < earLedsNum; y++) {
         if(earsNow->frames[0].ledColor[y] == 0) {
@@ -901,7 +901,7 @@ void loop() {
   }
 
   //--------------------------------//VISOR+BLUSH Leds render
-  if(visorNow->type == 0 || (visorNow->type == 1 && visorType == "MAX72XX")) { //custom
+  if((visorNow->type == 0 || (visorNow->type == 1 && visorType == "MAX72XX")) && visorNow->frames != nullptr) { //custom
     if(lastMillsVisor+visorNow->frames[currentVisorFrame].timespan <= millis() || instantReload) {
       currentVisorFrame++;
       lastMillsVisor = millis();
@@ -913,7 +913,7 @@ void loop() {
       }
       instantReload = false;
     }
-  } else if (visorNow->type == 1 && visorType == "WS2812") { //all_rainbow
+  } else if (visorNow->type == 1 && visorType == "WS2812" && visorNow->frames != nullptr) { //all_rainbow
     if(lastMillsVisor+visorNow->frames[currentVisorFrame].timespan <= millis() || instantReload) {
       currentVisorFrame++;
       lastMillsVisor = millis();
@@ -1019,7 +1019,7 @@ void loop() {
     }
 
     if(laskSpeakAnim+60<=millis() && speaking) {
-      if(visorNow->type == 0 || (visorNow->type == 1 && visorType == "MAX72XX")) { //custom
+      if((visorNow->type == 0 || (visorNow->type == 1 && visorType == "MAX72XX")) && visorNow->frames != nullptr) { //custom
         setAllVisor(visorLedsNEW,0,currentVisorFrame);
         laskSpeakAnim = millis();
       }
