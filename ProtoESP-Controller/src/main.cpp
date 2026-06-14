@@ -1241,13 +1241,13 @@ void loop() {
       for(int i = 0; i < earLedsNum; i++) {
         c2Leds[i] = earLeds[i];
       }
-      ledController[1]->showLeds(cfg.bEar);
+      ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
       FdisplayEar = false;
     } else if (blushPresent && !earPresent && FdisplayBlush) {
       for(int i = 0; i < blushLedsNum; i++) {
         c2Leds[i] = blushLeds[i];
       }
-      ledController[1]->showLeds(cfg.bEar);
+      ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
       FdisplayBlush = false;
     } else if (blushPresent && earPresent && (FdisplayBlush || FdisplayEar)) { //ear-blush-ear
       for(int i = 0; i < (earLedsNum/2); i++) {
@@ -1259,7 +1259,7 @@ void loop() {
       for(int i = (earLedsNum/2)+blushLedsNum; i < earLedsNum+blushLedsNum; i++) {
         c2Leds[i] = earLeds[i-blushLedsNum];
       }
-      ledController[1]->showLeds(cfg.bEar);
+      ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
       FdisplayEar = false;
       FdisplayBlush = false;
     }
