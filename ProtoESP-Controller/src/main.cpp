@@ -56,14 +56,6 @@ ezButton hwBtn(animBtn);
 #include <sstream>
 #define FASTLED_ESP8266_RAW_PIN_ORDER
 //#define FASTLED_RMT5 = 0 //doesnt compile
-#define FASTLED_ESP32_FLASH_LOCK 1
-// ESP32-S3 RMT5 WiFi glitch hardening:
-// Run RMT ISR from IRAM so WiFi flash-cache stalls can't corrupt the signal
-#define FASTLED_RMT5_FORCE_IRAM_SAFE 1
-// Raise RMT interrupt priority to maximum allowed (3) to beat WiFi interrupts
-#define FASTLED_RMT5_INTERRUPT_PRIORITY 3
-// Larger RMT symbol buffer absorbs WiFi burst jitter without underrunning
-#define FASTLED_RMT5_MEM_BLOCK_SYMBOLS 256
 #include <FastLED.h>
 #define ARDUINOJSON_USE_DOUBLE 0
 #include <ArduinoJson.h>
