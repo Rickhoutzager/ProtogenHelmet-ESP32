@@ -115,6 +115,7 @@ void logPrint(const String &str) {
 
 //--------------------------------//web / wifi
 #include "WiFi.h"
+#include "esp_wifi.h"
 #include "ESPAsyncWebServer.h"
 #include <ElegantOTA.h>
 
@@ -416,7 +417,8 @@ bool startBLE() {
 
 //--------------------------------//WiFi server setup
 void startWiFiWeb() {
-  WiFi.setSleep(false); //disable WiFi modem sleep — prevents burst interrupts that corrupt RMT/WS2812B signal
+  WiFi.setSleep(false);          // Arduino wrapper: disable modem sleep
+  esp_wifi_set_ps(WIFI_PS_NONE); // IDF-level guarantee: modem stays on, no burst interrupts that corrupt RMT/WS2812B signal
   WiFi.softAP(cfg.wifiName, cfg.wifiPass);
 
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
