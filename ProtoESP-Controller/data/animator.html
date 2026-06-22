@@ -601,7 +601,7 @@
       if (x < (numOfBlush/2)) { //left blush tilt
         $("#blush" + x).append("<table class=\"blush\"><tr><td class=\"item\" id=\"b" + x*2 + "\"></td><td></td><td></td></tr><tr><td></td></tr><tr><td></td><td></td><td class=\"item\" id=\"b" + ((x*2) + 1) + "\"></td></tr></table>");
       } else { //right blush tilt
-        $("#blush" + x).append("<table class=\"blush\"><tr><td></td><td></td><td class=\"item\" id=\"b" + ((x*2) + 1) + "\"></td></tr><tr><td></td></tr><tr><td class=\"item\" id=\"b" + x*2 + "\"></td><td></td><td></td></tr></table>");
+        $("#blush" + x).append("<table class=\"blush\"><tr><td></td><td></td><td class=\"item\" id=\"b" + x*2 + "\"></td></tr><tr><td></td></tr><tr><td class=\"item\" id=\"b" + ((x*2) + 1) + "\"></td><td></td><td></td></tr></table>");
       }
     }
     
