@@ -1209,9 +1209,10 @@ void loop() {
         if(visorNow->type == 0) {
           if(FADESTEPS == 0) { //no fading, copy directly
             memcpy(visorLeds, visorLedsNEW, sizeof(CRGB) * visorLedsNum);
-            // FastLED.show() fires all 3 RMT controllers in parallel (required by FastLED RMT design)
-            FastLED.setBrightness(flashlightMode ? 255 : cfg.bVisor);
-            FastLED.show();
+            // Show each controller with its own brightness to decouple visor and ear brightness
+            ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor);
+            ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
+            ledController[2]->showLeds(flashlightMode ? 255 : cfg.bVisor);
             FdisplayVisor = false;
             FdisplayEar = false;
             FdisplayBlush = false;
@@ -1219,8 +1220,9 @@ void loop() {
             for (uint16_t i = 0; i < visorLedsNum; i++) {
               visorLeds[i] = blend(visorLeds[i], visorLedsNEW[i], (currFade * 255) / FADESTEPS);
             }
-            FastLED.setBrightness(flashlightMode ? 255 : cfg.bVisor);
-            FastLED.show();
+            ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor);
+            ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
+            ledController[2]->showLeds(flashlightMode ? 255 : cfg.bVisor);
             fadeTime = millis();
             currFade++;
             if(currFade > FADESTEPS) {
@@ -1232,16 +1234,16 @@ void loop() {
             }
           }
         } else { //all_rainbow
-          FastLED.setBrightness(flashlightMode ? 255 : cfg.bVisor);
-          FastLED.show();
+          ledController[0]->showLeds(flashlightMode ? 255 : cfg.bVisor);
+          ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
+          ledController[2]->showLeds(flashlightMode ? 255 : cfg.bVisor);
           FdisplayVisor = false;
           FdisplayEar = false;
           FdisplayBlush = false;
         }
       } else if(FdisplayEar || FdisplayBlush) {
-        // Ears/blush changed but visor didn't — still need to show all controllers together
-        FastLED.setBrightness(flashlightMode ? 255 : cfg.bVisor);
-        FastLED.show();
+        // Ears/blush changed but visor didn't — update ears controller only with ear brightness
+        ledController[1]->showLeds(flashlightMode ? 255 : cfg.bEar);
         FdisplayEar = false;
         FdisplayBlush = false;
       }
