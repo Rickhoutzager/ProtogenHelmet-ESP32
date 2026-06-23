@@ -63,7 +63,7 @@
         <option value="M16mk3">M16 mk3</option>
         <option value="BFoxCZ">BFoxCZ</option>
         <option value="custom">custom</option>
-        <option value="custom_file">custom_file</option>
+        <option value="custom_file" selected>custom_file</option>
       </select>
       <label for="typeVisor" style="margin-left:30px">Modifier: </label> <sup onclick="alert('Select modifier for visor animation')">&#9432;</sup>
       <select id="typeVisor">
@@ -561,6 +561,7 @@
       $("#customConfig").show();
     }
   });
+  $("#visorConfig").change();
   
   function loadCustom() {
     numOfSegm = 0;
