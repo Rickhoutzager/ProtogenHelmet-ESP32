@@ -117,6 +117,20 @@ void SSDOLED::writeSet(int setNum) const {
   }
 }
 
+//--------------------------------//Low battery warning (replaces INA row when flashing)
+void SSDOLED::writeLowBatt(bool show) const {
+  u8g2.setDrawColor(0);
+  u8g2.drawBox(0, 32, 128, 13); // same area as writeINA: y 32-45
+  u8g2.setDrawColor(1);
+  if(show) {
+    u8g2.setFont(u8g2_font_t0_22b_tr);
+    const char* warn = "!! LOW BATT !!";
+    int width = u8g2.getStrWidth(warn);
+    u8g2.drawStr((128 - width) / 2, 45, warn);
+  }
+  u8g2.updateDisplayArea(0, 4, 16, 2);
+}
+
 //--------------------------------//RGB acronym status
 void SSDOLED::writeRGB(String name) const {
   u8g2.setFont(u8g2_font_t0_22b_tr);

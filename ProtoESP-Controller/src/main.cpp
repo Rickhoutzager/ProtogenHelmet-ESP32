@@ -38,6 +38,8 @@ bool INApresent = true; //Are you using INA219?
 
 #define oledAddr 60 //define oled on address 0x3c
 
+#define LOW_BATT_THRESHOLD 7.0f //2S LiPo low-battery warning threshold (V) — ~3.5V/cell
+
 //--------------------------------//No touching after this!
 
 #include <Arduino.h>
@@ -758,8 +760,8 @@ void setup() {
 }
 
 //--------------------------------//Loop vars
-String oldanim, boopoldanim;
-bool FdisplayVisor = false, FdisplayBlush = false, FdisplayEar = false, booping = false, wasTilt = false, boopRea = false, remoteSign = false, speaking = true, animLoading = false;
+String oldanim, boopoldanim, preLowBattAnim;
+bool FdisplayVisor = false, FdisplayBlush = false, FdisplayEar = false, booping = false, wasTilt = false, boopRea = false, remoteSign = false, speaking = true, animLoading = false, lowBattFlash = false, lowBattActive = false;
 float zAx,yAx,finalMicAvg,avgMicArr[10], micAttack = 0.35f, micRelease = 0.2f, env = 0.0f;
 int boopRead, startIndex = 1, micVolume, currentMicAvg = 0, btnNum = 0, currFade = 1, apdsprox = 255;
 unsigned long lastMillsEars = 0, lastMillsVisor = 0, lastMillsTilt = 0, laskSpeakCheck = 0, lastMillsBoop = 0, lastFLED = 0, vaStatLast = 0, btnPressTime = 0, tiltChange = 0, check0button = 0, looptime = 0, fadeTime = 0, laskSpeakAnim = 0, lastBoopCheck = 0;
@@ -1159,7 +1161,31 @@ void loop() {
   if(cfg.oledEna && oledInitDone && vaStatLast+1000<millis()) {
     //looptime = micros();
     if(INApresent) {
-      oled.writeINA(ina219.getBusVoltage_V(),ina219.getCurrent_mA());
+      float busVolt = ina219.getBusVoltage_V();
+      float busCurr = ina219.getCurrent_mA();
+      if(busVolt > 0.5f && busVolt < LOW_BATT_THRESHOLD) { // low battery
+        if(!lowBattActive) { // first time crossing the threshold — switch animation once
+          lowBattActive = true;
+          preLowBattAnim = (currentAnim != "low batt.json") ? currentAnim : "default.json";
+          logPrint(F("[W] Low battery! Switching to low batt animation."));
+          loadAnim("low batt.json", "");
+        }
+        lowBattFlash = !lowBattFlash; // flash "!! LOW BATT !!" / voltage alternately every second
+        if(lowBattFlash) {
+          oled.writeLowBatt(true);
+        } else {
+          oled.writeINA(busVolt, busCurr);
+        }
+        logPrint("[W] Low battery: "+String(busVolt,2)+"V");
+      } else {
+        if(lowBattActive) { // battery recovered (pack swapped) — restore previous animation
+          lowBattActive = false;
+          logPrint(F("[I] Battery recovered, restoring previous animation."));
+          loadAnim(preLowBattAnim, "");
+        }
+        lowBattFlash = false;
+        oled.writeINA(busVolt, busCurr);
+      }
     }
     if(cfg.bleEna) {
       if(pServer->getConnectedCount() == 0) {

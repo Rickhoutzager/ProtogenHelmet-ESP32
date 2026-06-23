@@ -66,6 +66,7 @@ public:
   void writeSet(int) const;
   int writeAnim(String) const;
   void writeINA(float,float) const;
+  void writeLowBatt(bool) const;
   void writeRGB(String) const;
   void speak(bool) const;
   void remote(bool) const;
