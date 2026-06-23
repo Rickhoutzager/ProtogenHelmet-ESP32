@@ -18,13 +18,13 @@ ezButton buttonArray[BUTTONS] = { //1... left to right, row by row, pins of butt
 #elif defined(CONFIG_IDF_TARGET_ESP32S3)
 int sleepArray[] = {1,2,3,4,7,8,9}; //numbers of pins to wake up with
 ezButton buttonArray[BUTTONS] = { //1... left to right, row by row, pins of buttons
-  ezButton(8), //up left
-  ezButton(2), //up right
-  ezButton(3), //up
-  ezButton(7), //left
-  ezButton(9), //center
-  ezButton(1), //right
-  ezButton(4)  //down
+  ezButton(8), //1 up left
+  ezButton(2), //2 up right
+  ezButton(3), //3 up
+  ezButton(7), //4 left
+  ezButton(9), //5 center
+  ezButton(1), //6 right
+  ezButton(4)  //7 down
 };
 #endif
 
