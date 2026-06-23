@@ -139,7 +139,6 @@
     </div>
     <p style="text-align:center">Coded by <a target=”_blank” href="https://github.com/ncplyn" class="rainbow-text">@NCPlyn</a></p>
   </main>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"eee83530bd504643b1521b595f3503df","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
 
@@ -1516,13 +1515,14 @@
         temp += ((x>0)?",":"")+"\"" + ((temp2=="000000")?"0":temp2) + "\"";
       }
       temp += "],\"ppColor\":[";
+      var ppFirst = true;
       for (var x = 0; x < numOfSegm; x++) {
-        var temp3 = "", doAdd = false, doSep = false
-        temp3 = ((x>0)?",":"")+"{\"mIndex\":"+x+",\"data\":[";
+        var temp3 = "", doAdd = false;
+        temp3 = "{\"mIndex\":"+x+",\"data\":[";
         for (var y = 0; y < 64; y++) {
           var elem = $('#t'+x).find("td.item[data-row=\""+(Math.floor(y/8)+1)+"\"][data-col=\""+((y%8)+1)+"\"]")
           if(elem.attr('style') != undefined) {
-            if(doAdd && y>0) {
+            if(doAdd) {
               temp3+=",";
             }
             doAdd = true
@@ -1530,6 +1530,8 @@
           }
         }
         if(doAdd) {
+          if(!ppFirst) temp+=",";
+          ppFirst = false;
           temp+=temp3+"]}";
         }
       }
