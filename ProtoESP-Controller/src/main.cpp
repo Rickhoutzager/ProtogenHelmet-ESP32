@@ -47,9 +47,9 @@ bool INApresent = true; //Are you using INA219?
 #include "esp_adc/adc_oneshot.h"
 adc_oneshot_unit_handle_t adc_handle;
 
-#define earTypeSize 6
+#define earTypeSize 7
 #define visTypeSize 2
-String earTypes[earTypeSize] = {"custom","rainbow","white_noise","corner_sabers","custom_glow","none"}; //available ear type animations
+String earTypes[earTypeSize] = {"custom","rainbow","white_noise","corner_sabers","custom_glow","none","fire"}; //available ear type animations
 String visorTypes[visTypeSize] = {"custom","all_rainbow"}; //available visor type animations
 String vTAcro[visTypeSize] = {"cust","rnbw"}; //OLED acronyms for visor type animations
 
@@ -200,6 +200,7 @@ CLEDController *ledController[3]; // [0]=visor pin1 (matrices 1-VISOR_SPLIT), [1
 CRGB pixelBuffer[18];
 CRGB visorPixelBuffer[10];
 uint8_t noiseData[earLedsNum];
+uint8_t fireHeat[earLedsNum]; // heat buffer for fire animation
 
 DEFINE_GRADIENT_PALETTE( blackWhite_gp ) {
   0,   100,  0, 0,
@@ -912,6 +913,88 @@ void loop() {
       }
       FdisplayEar = true;
     } else if (earsNow->type == 5) {} //none
+    else if (earsNow->type == 6) { //fire - flames rise upward on concentric rings
+      if(instantReload) {
+        memset(fireHeat, 0, sizeof(fireHeat)); // clear heat buffer on animation load
+      }
+      if(millis() - lastFLED > 30) { // ~33fps fire update
+        lastFLED = millis();
+        if(earLedsNum == 74) {
+          // Ring layout per ear (37 LEDs): outer(16) + ring2(12) + ring3(8) + center(1)
+          // LED 0 = top of each ring, wired clockwise, outer ring first.
+          // We use 8 height rows: row 0 = top of disc, row 7 = bottom of disc.
+          // fireHeat[ear*8 + row] stores the heat for each height row (uses first 16 bytes).
+          //
+          // Row index = round((1 - cos(2*pi*p/ringSize)) / 2 * 7)
+          // p=0 (top) → row 0;  p=ringSize/2 (bottom) → row 7
+          const int NUM_ROWS = 8;
+          static const uint8_t rOff[4]      = { 0, 16, 28, 36};
+          static const uint8_t rowOuter[16] = {0,0,1,2,4,5,6,7, 7,7,6,5,4,2,1,0};
+          static const uint8_t rowRing2[12] = {0,0,2,4,5,7,7,7, 5,4,2,0};
+          static const uint8_t rowRing3[ 8] = {0,1,4,6,7,6,4,1};
+
+          for(int ear = 0; ear < 2; ear++) {
+            int base = ear * NUM_ROWS; // index into fireHeat[] for this ear's row heat values
+
+            // Step 1: Cool down each height row
+            for(int r = 0; r < NUM_ROWS; r++) {
+              uint8_t cool = random8(0, 45);
+              fireHeat[base + r] = (fireHeat[base + r] > cool) ? fireHeat[base + r] - cool : 0;
+            }
+
+            // Step 2: Heat rises — blend each row upward (from bottom toward top)
+            for(int r = 0; r < NUM_ROWS - 2; r++) {
+              fireHeat[base + r] = ((uint16_t)fireHeat[base + r] +
+                                     (uint16_t)fireHeat[base + r + 1] +
+                                     (uint16_t)fireHeat[base + r + 2]) / 3;
+            }
+
+            // Step 3: Randomly ignite sparks at the bottom rows (rows 6–7)
+            if(random8() < 120) {
+              uint8_t r = (NUM_ROWS - 1) - random8(2);
+              fireHeat[base + r] = qadd8(fireHeat[base + r], random8(160, 255));
+            }
+
+            // Step 4: Map each LED to its row heat value (with small per-LED noise)
+            int earBase = ear * 37;
+            for(int p = 0; p < 16; p++) {
+              earLeds[earBase + rOff[0] + p] = HeatColor(qsub8(fireHeat[base + rowOuter[p]], random8(0, 25)));
+            }
+            for(int p = 0; p < 12; p++) {
+              earLeds[earBase + rOff[1] + p] = HeatColor(qsub8(fireHeat[base + rowRing2[p]], random8(0, 25)));
+            }
+            for(int p = 0; p <  8; p++) {
+              earLeds[earBase + rOff[2] + p] = HeatColor(qsub8(fireHeat[base + rowRing3[p]], random8(0, 25)));
+            }
+            // Center LED — sits at the middle of the disc (row NUM_ROWS/2)
+            earLeds[earBase + 36] = HeatColor(qsub8(fireHeat[base + NUM_ROWS / 2], random8(0, 25)));
+          }
+        } else {
+          // Fallback for non-74 LED mode: simple linear fire
+          int halfSize = earLedsNum / 2;
+          for(int ear = 0; ear < 2; ear++) {
+            int base = ear * halfSize;
+            for(int i = 0; i < halfSize; i++) {
+              uint8_t cool = random8(0, ((55 * 10) / halfSize) + 2);
+              fireHeat[base + i] = (fireHeat[base + i] > cool) ? fireHeat[base + i] - cool : 0;
+            }
+            for(int i = halfSize - 1; i >= 2; i--) {
+              fireHeat[base + i] = ((uint16_t)fireHeat[base + i - 1] +
+                                     (uint16_t)fireHeat[base + i - 2] +
+                                     (uint16_t)fireHeat[base + i - 2]) / 3;
+            }
+            if(random8() < 120) {
+              uint8_t y = random8(3);
+              fireHeat[base + y] = qadd8(fireHeat[base + y], random8(160, 255));
+            }
+          }
+          for(int i = 0; i < earLedsNum; i++) {
+            earLeds[i] = HeatColor(fireHeat[i]);
+          }
+        }
+        FdisplayEar = true;
+      }
+    }
   }
 
   //--------------------------------//VISOR+BLUSH Leds render
