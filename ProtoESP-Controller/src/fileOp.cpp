@@ -53,6 +53,7 @@ void Config::setDefault() {
   wifiPass = "Proto1234";
   fanDuty = 255;
   boopThresh = 15;
+  toFov = 16;
   save();
 }
 
@@ -89,6 +90,7 @@ bool Config::save() {
   doc["wifiPass"] = wifiPass;
   doc["fanDuty"] = fanDuty;
   doc["boopThresh"] = boopThresh;
+  doc["toFov"] = toFov;
   
   CrcWriter CRCchk;
   serializeJson(doc, CRCchk);
@@ -192,6 +194,8 @@ bool Config::load() {
   wifiPass = doc["wifiPass"].as<String>();
   fanDuty = doc["fanDuty"].as<int>();
   boopThresh = doc["boopThresh"].as<int>();
+  toFov = doc["toFov"].as<int>();
+  if (toFov < 4 || toFov > 16) toFov = 16; // safe fallback for old configs
 
   return true;
 }

@@ -134,6 +134,7 @@ uint8_t currentEarsFrame = 0, currentVisorFrame = 0, numOfSegm, numAnimBlush, to
 uint16_t visorLedsNum = MATRIXESNUM*64;
 String currentAnim = "", animToLoad = "", availAnims[50], getfilesCache;
 float micDC = 800;
+int16_t lastToFDistance = -1; //cached last VL53L1X reading for /tof endpoint
 
 //--------------------------------//getting stored anims names and count
 void getFilesFunc() {
@@ -341,7 +342,6 @@ bool loadAnim(String anim, String temp) {
 //--------------------------------//BLE
 #define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 2
 #define CONFIG_BT_NIMBLE_ROLE_CENTRAL_DISABLED
-#define CONFIG_BT_NIMBLE_ROLE_OBSERVER_DISABLED
 #define CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL 1
 #include "NimBLEDevice.h"
 
@@ -481,6 +481,11 @@ void startWiFiWeb() {
     cfg.getString(request, "wifiPass", cfg.wifiPass);
     //boop threshold
     cfg.getInt(request, "boopThresh", cfg.boopThresh);
+    //ToF FOV (ROI size, 4-16; 16=~27°, 8=~15°, 4=~7°)
+    if (cfg.getInt(request, "toFov", cfg.toFov)) {
+      cfg.toFov = constrain(cfg.toFov, 4, 16);
+      if (ToFInitDone) vl53.VL53L1X_SetROI(cfg.toFov, cfg.toFov);
+    }
     delay(25);
     if(cfg.save()) {
       instantReload = true;
@@ -581,16 +586,22 @@ void startWiFiWeb() {
   });
 
   server.on("/tof", HTTP_GET, [](AsyncWebServerRequest *request){
+    String dbg = "boopEna=" + String(cfg.boopEna) +
+                 " ToFInitDone=" + String(ToFInitDone) +
+                 " lastToFDist=" + String(lastToFDistance) +
+                 " dataReady=" + String(vl53.dataReady());
     if(!ToFInitDone) {
-      request->send(200, "text/plain", "ToF not initialized!");
+      request->send(200, "text/plain", "ToF not initialized! " + dbg);
+      return;
     }
     if (boopMode == "APDS9960") {
-        request->send(200, "text/plain", String(255 - apds.readProximity()));
+      request->send(200, "text/plain", String(255 - apds.readProximity()));
     } else if (boopMode == "VL53L1X") {
-      if (vl53.dataReady()) {
-        request->send(200, "text/plain", String(vl53.distance()));
+      if (lastToFDistance != -1) {
+        request->send(200, "text/plain", String(lastToFDistance) + " mm | " + dbg);
+      } else {
+        request->send(200, "text/plain", "Data not ready! " + dbg);
       }
-      request->send(200, "text/plain", "Data not ready!");
     }
   });
   
@@ -747,6 +758,7 @@ void setup() {
         } else {
           ToFInitDone = true;
           vl53.setTimingBudget(50);
+          vl53.VL53L1X_SetROI(cfg.toFov, cfg.toFov);
         }
       }
     }
@@ -1116,16 +1128,22 @@ void loop() {
     } else if (boopMode == "VL53L1X") {
       if(ToFInitDone) {
         int16_t distance = -1;
-        if (vl53.dataReady()) {
+        bool dr = vl53.dataReady();
+        Serial.print("[ToF] dataReady="); Serial.print(dr);
+        if (dr) {
           distance = vl53.distance();
+          lastToFDistance = distance; //cache for /tof endpoint
+          Serial.print(" dist="); Serial.println(distance);
+        } else {
+          Serial.println(" (no new data)");
         }
-        if(booping == false && distance < cfg.boopThresh && distance != -1) {
+        if(booping == false && distance != -1 && distance < cfg.boopThresh) {
           logPrint(F("[I] ToF BOOP"));
           booping = true;
           boopoldanim = currentAnim;
           loadAnim(cfg.aBoop,"");
           lastMillsBoop = millis();
-        } else if(booping == true && lastMillsBoop+1000<millis() && distance > cfg.boopThresh && distance != -1) {
+        } else if(booping == true && lastMillsBoop+1000<millis() && (lastToFDistance == -1 || lastToFDistance > cfg.boopThresh)) {
           logPrint(F("[I] ToF unBOOP"));
           booping = false;
           if(!wasTilt) {
@@ -1148,6 +1166,7 @@ void loop() {
             } else {
               ToFInitDone = true;
               vl53.setTimingBudget(50);
+              vl53.VL53L1X_SetROI(cfg.toFov, cfg.toFov);
             }
           }
         }

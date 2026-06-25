@@ -73,6 +73,8 @@
           <input type="number" name="spTrig" min="2" max="100">
           <label for="boopThresh">Boop distance threshold <sup onclick="alert('Range: 1-250\nDefault: 15')">&#9432;</sup></label>
           <input type="number" name="boopThresh" min="1" max="250">
+          <label for="toFov">ToF sensor FoV <sup onclick="alert('VL53L1X ROI size (4–16).\n16 = ~27° (default, widest)\n8 = ~15°\n4 = ~7° (narrowest)\nApplied live on save.')">&#9432;</sup></label>
+          <input type="number" name="toFov" min="4" max="16">
           <label for="aTilt">Tilt sideways animation <sup onclick="alert('Default: confused.json')">&#9432;</sup></label>
           <select id="aTilt" name="aTilt"></select>
           <label for="aUp">Tilt up animation <sup onclick="alert('Default: upset.json')">&#9432;</sup></label>
@@ -353,6 +355,7 @@
         document.getElementsByName("wifiPass")[0].value = obj.wifiPass;
         document.getElementById("fanspeed").value = obj.fanDuty;
         document.getElementsByName("boopThresh")[0].value = obj.boopThresh;
+        document.getElementsByName("toFov")[0].value = obj.toFov;
   }
 
 	function loadConfig() {
