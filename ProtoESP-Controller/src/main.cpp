@@ -341,7 +341,7 @@ bool loadAnim(String anim, String temp) {
 }
 
 //--------------------------------//BLE
-#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 2
+#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 3
 #define CONFIG_BT_NIMBLE_ROLE_CENTRAL_DISABLED
 #define CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL 1
 #include "NimBLEDevice.h"
@@ -390,6 +390,12 @@ class MyCallbacks: public NimBLECharacteristicCallbacks {
 } chrCallbacks;
 
 class ServerCallbacks : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
+      // If there is still room for more connections, keep advertising so additional remotes can connect
+      if (pServer->getConnectedCount() < CONFIG_BT_NIMBLE_MAX_CONNECTIONS) {
+          NimBLEDevice::startAdvertising();
+      }
+  }
   void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
       NimBLEDevice::startAdvertising();
   }
