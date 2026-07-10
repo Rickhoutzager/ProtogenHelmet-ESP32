@@ -451,6 +451,7 @@ void startWiFiWeb() {
     cfg.getBool(request, "tiltEna", cfg.tiltEna);
     cfg.getBool(request, "bleEna", cfg.bleEna);
     cfg.getBool(request, "oledEna", cfg.oledEna);
+    cfg.getBool(request, "lowBattSwitch", cfg.lowBattSwitch);
     //brightness
     cfg.getInt(request, "bEar", cfg.bEar);
     cfg.getInt(request, "bVisor", cfg.bVisor);
@@ -1274,11 +1275,15 @@ void loop() {
       float busVolt = ina219.getBusVoltage_V();
       float busCurr = ina219.getCurrent_mA();
       if(busVolt > 0.5f && busVolt < LOW_BATT_THRESHOLD) { // low battery
-        if(!lowBattActive) { // first time crossing the threshold — switch animation once
+        if(!lowBattActive) { // first time crossing the threshold
           lowBattActive = true;
-          preLowBattAnim = (currentAnim != "low batt.json") ? currentAnim : "default.json";
-          logPrint(F("[W] Low battery! Switching to low batt animation."));
-          loadAnim("low batt.json", "");
+          if(cfg.lowBattSwitch) { // only switch animation if the toggle is enabled
+            preLowBattAnim = (currentAnim != "low batt.json") ? currentAnim : "default.json";
+            logPrint(F("[W] Low battery! Switching to low batt animation."));
+            loadAnim("low batt.json", "");
+          } else {
+            logPrint(F("[W] Low battery! (anim switch disabled)"));
+          }
         }
         lowBattFlash = !lowBattFlash; // flash "!! LOW BATT !!" / voltage alternately every second
         if(lowBattFlash) {
@@ -1290,8 +1295,12 @@ void loop() {
       } else {
         if(lowBattActive) { // battery recovered (pack swapped) — restore previous animation
           lowBattActive = false;
-          logPrint(F("[I] Battery recovered, restoring previous animation."));
-          loadAnim(preLowBattAnim, "");
+          if(cfg.lowBattSwitch) {
+            logPrint(F("[I] Battery recovered, restoring previous animation."));
+            loadAnim(preLowBattAnim, "");
+          } else {
+            logPrint(F("[I] Battery recovered."));
+          }
         }
         lowBattFlash = false;
         oled.writeINA(busVolt, busCurr);
