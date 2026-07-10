@@ -955,10 +955,12 @@ void loop() {
                                      (uint16_t)fireHeat[base + r + 2]) / 3;
             }
 
-            // Step 3: Randomly ignite sparks at the bottom rows (rows 6–7)
-            if(random8() < 120) {
-              uint8_t r = (NUM_ROWS - 1) - random8(2);
-              fireHeat[base + r] = qadd8(fireHeat[base + r], random8(160, 255));
+            // Step 3: Always keep bottom rows (6–7) hot so the base never goes dark
+            fireHeat[base + NUM_ROWS - 1] = qadd8(fireHeat[base + NUM_ROWS - 1], random8(100, 180));
+            fireHeat[base + NUM_ROWS - 2] = qadd8(fireHeat[base + NUM_ROWS - 2], random8(80, 160));
+            // Cap heat at 200 to prevent HeatColor() from reaching the white range
+            for(int r = 0; r < NUM_ROWS; r++) {
+              if(fireHeat[base + r] > 200) fireHeat[base + r] = 200;
             }
 
             // Step 4: Map each LED to its row heat value (with small per-LED noise)
