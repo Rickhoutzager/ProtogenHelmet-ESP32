@@ -1238,13 +1238,13 @@ void loop() {
       if(ToFInitDone) {
         int16_t distance = -1;
         bool dr = vl53.dataReady();
-        Serial.print("[ToF] dataReady="); Serial.print(dr);
+        // Serial.print("[ToF] dataReady="); Serial.print(dr);
         if (dr) {
           distance = vl53.distance();
           lastToFDistance = distance; //cache for /tof endpoint
-          Serial.print(" dist="); Serial.println(distance);
+          // Serial.print(" dist="); Serial.println(distance);
         } else {
-          Serial.println(" (no new data)");
+          // Serial.println(" (no new data)");
         }
         if(booping == false && distance != -1 && distance < cfg.boopThresh) {
           logPrint(F("[I] ToF BOOP"));
