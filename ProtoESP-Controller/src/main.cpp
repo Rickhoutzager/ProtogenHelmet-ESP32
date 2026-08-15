@@ -38,7 +38,9 @@ bool INApresent = true; //Are you using INA219?
 
 #define oledAddr 60 //define oled on address 0x3c
 
-#define LOW_BATT_THRESHOLD 7.0f //2S LiPo low-battery warning threshold (V) — ~3.5V/cell
+#define LOW_BATT_THRESHOLD 7.0f      //2S LiPo low-battery warning threshold (V) — ~3.5V/cell (compared against compensated/unloaded-equivalent voltage)
+#define BATT_INT_RESISTANCE_OHMS 0.052f //Internal resistance of your battery pack (Ω) — measured: INA=5A total → 2.5A/cell; (3.75-3.62)/2.5=0.052Ω/cell → /2(2P)×2(2S) = 0.052Ω pack total
+#define LOW_BATT_CONSECUTIVE_SECS 5  //Compensated voltage must stay below threshold for this many seconds before warning triggers (prevents false positives from inrush spikes)
 
 //--------------------------------//No touching after this!
 
@@ -779,11 +781,26 @@ void setup() {
   logPrint("[I] Free PSRAM: "+String(ESP.getFreePsram()));
 }
 
+//--------------------------------//Battery percentage from compensated (unloaded-equivalent) voltage — 2S LiPo curve
+// Points: 8.40V=100%, 8.20V=90%, 8.00V=75%, 7.80V=60%, 7.60V=45%, 7.40V=30%, 7.20V=15%, 7.00V=5%, 6.80V=0%
+int batteryPercent(float v) {
+  if(v >= 8.40f) return 100;
+  if(v >= 8.20f) return (int)map((long)(v * 100), 820, 840, 90, 100);
+  if(v >= 8.00f) return (int)map((long)(v * 100), 800, 820, 75, 90);
+  if(v >= 7.80f) return (int)map((long)(v * 100), 780, 800, 60, 75);
+  if(v >= 7.60f) return (int)map((long)(v * 100), 760, 780, 45, 60);
+  if(v >= 7.40f) return (int)map((long)(v * 100), 740, 760, 30, 45);
+  if(v >= 7.20f) return (int)map((long)(v * 100), 720, 740, 15, 30);
+  if(v >= 7.00f) return (int)map((long)(v * 100), 700, 720, 5,  15);
+  if(v >= 6.80f) return (int)map((long)(v * 100), 680, 700, 0,  5);
+  return 0;
+}
+
 //--------------------------------//Loop vars
 String oldanim, boopoldanim, preLowBattAnim;
 bool FdisplayVisor = false, FdisplayBlush = false, FdisplayEar = false, booping = false, wasTilt = false, boopRea = false, remoteSign = false, speaking = true, animLoading = false, lowBattFlash = false, lowBattActive = false;
 float zAx,yAx,finalMicAvg,avgMicArr[10], micAttack = 0.35f, micRelease = 0.2f, env = 0.0f;
-int boopRead, startIndex = 1, micVolume, currentMicAvg = 0, btnNum = 0, currFade = 1, apdsprox = 255;
+int boopRead, startIndex = 1, micVolume, currentMicAvg = 0, btnNum = 0, currFade = 1, apdsprox = 255, lowBattConsecutiveCount = 0;
 unsigned long lastMillsEars = 0, lastMillsVisor = 0, lastMillsTilt = 0, laskSpeakCheck = 0, lastMillsBoop = 0, lastFLED = 0, vaStatLast = 0, btnPressTime = 0, tiltChange = 0, check0button = 0, looptime = 0, fadeTime = 0, laskSpeakAnim = 0, lastBoopCheck = 0;
 
 void dynamicSpeak(uint64_t *leds, bool isMouth[MATRIXESNUM], int volume) {
@@ -1274,7 +1291,17 @@ void loop() {
     if(INApresent) {
       float busVolt = ina219.getBusVoltage_V();
       float busCurr = ina219.getCurrent_mA();
-      if(busVolt > 0.5f && busVolt < LOW_BATT_THRESHOLD) { // low battery
+      // Compensate for internal resistance voltage sag: estimate what voltage would be at rest
+      float compVolt = busVolt + (busCurr / 1000.0f) * BATT_INT_RESISTANCE_OHMS;
+      int battPct = batteryPercent(compVolt);
+      bool belowThreshold = (compVolt > 0.5f && compVolt < LOW_BATT_THRESHOLD);
+      if(belowThreshold) {
+        lowBattConsecutiveCount++;
+      } else {
+        lowBattConsecutiveCount = 0;
+      }
+      bool triggerLowBatt = (lowBattConsecutiveCount >= LOW_BATT_CONSECUTIVE_SECS);
+      if(triggerLowBatt) {
         if(!lowBattActive) { // first time crossing the threshold
           lowBattActive = true;
           if(cfg.lowBattSwitch) { // only switch animation if the toggle is enabled
@@ -1289,12 +1316,13 @@ void loop() {
         if(lowBattFlash) {
           oled.writeLowBatt(true);
         } else {
-          oled.writeINA(busVolt, busCurr);
+          oled.writeINA(busVolt, busCurr, battPct);
         }
-        logPrint("[W] Low battery: "+String(busVolt,2)+"V");
+        logPrint("[W] Low battery: "+String(busVolt,2)+"V (comp: "+String(compVolt,2)+"V, "+String(battPct)+"%%)");
       } else {
         if(lowBattActive) { // battery recovered (pack swapped) — restore previous animation
           lowBattActive = false;
+          lowBattConsecutiveCount = 0;
           if(cfg.lowBattSwitch) {
             logPrint(F("[I] Battery recovered, restoring previous animation."));
             loadAnim(preLowBattAnim, "");
@@ -1303,7 +1331,7 @@ void loop() {
           }
         }
         lowBattFlash = false;
-        oled.writeINA(busVolt, busCurr);
+        oled.writeINA(busVolt, busCurr, battPct);
       }
     }
     if(cfg.bleEna) {

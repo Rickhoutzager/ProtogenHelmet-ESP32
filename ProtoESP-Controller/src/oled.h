@@ -65,7 +65,7 @@ public:
   void oledBright(int) const;
   void writeSet(int) const;
   int writeAnim(String) const;
-  void writeINA(float,float) const;
+  void writeINA(float,float,int) const;
   void writeLowBatt(bool) const;
   void writeRGB(String) const;
   void speak(bool) const;

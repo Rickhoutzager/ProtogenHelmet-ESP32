@@ -48,12 +48,12 @@ int SSDOLED::writeAnim(String anim) const {
   return width;
 }
 
-//--------------------------------//INA Voltage & Current
-void SSDOLED::writeINA(float volt, float amp) const {
+//--------------------------------//INA Voltage, Current & Battery %
+void SSDOLED::writeINA(float volt, float amp, int pct) const {
   u8g2.setDrawColor(0);
   u8g2.drawBox(0, 32, 128, 13); //0-128 ; 32-45
   u8g2.setDrawColor(1);
-  String toShow = String(volt,2)+"V "+String(amp/1000,2)+"A";
+  String toShow = String(volt,1)+"V"+String(amp/1000,1)+"A"+String(pct)+"%";
   float width = u8g2.getStrWidth(toShow.c_str());
   u8g2.setFont(u8g2_font_t0_22b_tr);
   u8g2.drawStr((128 - width) / 2, 45, toShow.c_str());
