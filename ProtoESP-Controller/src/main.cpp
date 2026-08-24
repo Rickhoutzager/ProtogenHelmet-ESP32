@@ -355,10 +355,10 @@ BLEAdvertising* pAdvertising;
 class MyCallbacks: public NimBLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
       String temp = String(pCharacteristic->getValue().c_str());
-      if(temp.charAt(0) == 'g') { //legacy remote reasons
+      if(temp == "g") { //legacy remote reasons
         pCharacteristic->setValue("i"+String(totalAnims));
         pCharacteristic->notify();
-      } else if (temp.charAt(0) == '?') {
+      } else if (temp == "?") {
         String animtemp;
         for(int i = 0; i < totalAnims; i++) {
           animtemp += availAnims[i].substring(0, availAnims[i].length() - 5);
@@ -366,7 +366,7 @@ class MyCallbacks: public NimBLECharacteristicCallbacks {
         }
         pCharacteristic->setValue(animtemp);
         pCharacteristic->notify(true);
-      } else if (temp.charAt(0) == ';') { //command
+      } else if (temp.startsWith(";")) { //command
         if (temp.indexOf("rgb") > 0 && visorType == "WS2812") {
           visorNow->type++;
           if(visorNow->type == visTypeSize)
